@@ -13,9 +13,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  # GitHub repository may contain uppercase letters; Docker image names must be lowercase.
-  # Use toLower() to ensure the repository path is valid for container registries.
-  IMAGE_NAME: ${{ toLower(github.repository) }}
+  # Default repository path (will be normalized to lowercase by a step before use)
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build-and-push:
@@ -37,6 +36,13 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Normalize image name to lowercase
+        # Ensure IMAGE_NAME is lowercase because Docker registry names must be lowercase
+        run: |
+          # Lowercase GITHUB_REPOSITORY (owner/repo)
+          echo "IMAGE_NAME=$(echo \"$GITHUB_REPOSITORY\" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+        shell: bash
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
