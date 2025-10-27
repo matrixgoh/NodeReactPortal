@@ -18,8 +18,8 @@ RUN npm run build
 FROM node:20-slim
 WORKDIR /app
 
-# Install build dependencies for native modules
-RUN apt-get update && apt-get install -y python3 make g++ && \
+# Install build dependencies for native modules and curl for healthcheck
+RUN apt-get update && apt-get install -y python3 make g++ curl && \
     rm -rf /var/lib/apt/lists/*
 # Configure npm to not check SSL
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
