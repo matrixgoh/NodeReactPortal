@@ -3,7 +3,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 const path = require('path');
 require('dotenv').config();
 
@@ -16,38 +16,22 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Serve static files from React build
-app.use(express.static(path.join(__dirname, '../frontend/build')));
-
 // Database setup
-const db = new sqlite3.Database(':memory:', (err) => {
-  if (err) {
-    console.error('Error opening database:', err);
-  } else {
-    console.log('Connected to SQLite database');
-    initDatabase();
-  }
-});
+const db = new Database(':memory:');
+console.log('Connected to SQLite database');
 
 // Initialize database tables
-function initDatabase() {
-  db.run(`CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    fullName TEXT,
-    bio TEXT,
-    avatar TEXT,
-    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-  )`, (err) => {
-    if (err) {
-      console.error('Error creating users table:', err);
-    } else {
-      console.log('Users table ready');
-    }
-  });
-}
+db.exec(`CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT UNIQUE NOT NULL,
+  email TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  fullName TEXT,
+  bio TEXT,
+  avatar TEXT,
+  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+)`);
+console.log('Users table ready');
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
@@ -79,38 +63,28 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     // Check if user already exists
-    db.get('SELECT * FROM users WHERE username = ? OR email = ?', [username, email], async (err, existingUser) => {
-      if (err) {
-        return res.status(500).json({ error: 'Database error' });
-      }
+    const existingUser = db.prepare('SELECT * FROM users WHERE username = ? OR email = ?').get(username, email);
 
-      if (existingUser) {
-        return res.status(400).json({ error: 'Username or email already exists' });
-      }
+    if (existingUser) {
+      return res.status(400).json({ error: 'Username or email already exists' });
+    }
 
-      // Hash password
-      const hashedPassword = await bcrypt.hash(password, 10);
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-      // Insert new user
-      db.run(
-        'INSERT INTO users (username, email, password, fullName) VALUES (?, ?, ?, ?)',
-        [username, email, hashedPassword, fullName || ''],
-        function(err) {
-          if (err) {
-            return res.status(500).json({ error: 'Error creating user' });
-          }
+    // Insert new user
+    const insert = db.prepare('INSERT INTO users (username, email, password, fullName) VALUES (?, ?, ?, ?)');
+    const info = insert.run(username, email, hashedPassword, fullName || '');
 
-          const token = jwt.sign({ id: this.lastID, username }, JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign({ id: info.lastInsertRowid, username }, JWT_SECRET, { expiresIn: '24h' });
 
-          res.status(201).json({
-            message: 'User created successfully',
-            token,
-            user: { id: this.lastID, username, email, fullName: fullName || '' }
-          });
-        }
-      );
+    res.status(201).json({
+      message: 'User created successfully',
+      token,
+      user: { id: info.lastInsertRowid, username, email, fullName: fullName || '' }
     });
   } catch (error) {
+    console.error('Register error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -124,98 +98,95 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ error: 'Username and password are required' });
     }
 
-    db.get('SELECT * FROM users WHERE username = ?', [username], async (err, user) => {
-      if (err) {
-        return res.status(500).json({ error: 'Database error' });
+    const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, user.password);
+
+    if (!isValidPassword) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
+
+    res.json({
+      message: 'Login successful',
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        fullName: user.fullName,
+        bio: user.bio,
+        avatar: user.avatar
       }
-
-      if (!user) {
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
-
-      // Verify password
-      const isValidPassword = await bcrypt.compare(password, user.password);
-
-      if (!isValidPassword) {
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
-
-      const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
-
-      res.json({
-        message: 'Login successful',
-        token,
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          fullName: user.fullName,
-          bio: user.bio,
-          avatar: user.avatar
-        }
-      });
     });
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
 // Get current user profile
 app.get('/api/user/profile', authenticateToken, (req, res) => {
-  db.get('SELECT id, username, email, fullName, bio, avatar, createdAt FROM users WHERE id = ?', [req.user.id], (err, user) => {
-    if (err) {
-      return res.status(500).json({ error: 'Database error' });
-    }
+  try {
+    const user = db.prepare('SELECT id, username, email, fullName, bio, avatar, createdAt FROM users WHERE id = ?').get(req.user.id);
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
     res.json(user);
-  });
+  } catch (error) {
+    console.error('Get profile error:', error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // Update user profile
 app.put('/api/user/profile', authenticateToken, (req, res) => {
-  const { fullName, bio, avatar } = req.body;
+  try {
+    const { fullName, bio, avatar } = req.body;
 
-  db.run(
-    'UPDATE users SET fullName = ?, bio = ?, avatar = ? WHERE id = ?',
-    [fullName || '', bio || '', avatar || '', req.user.id],
-    function(err) {
-      if (err) {
-        return res.status(500).json({ error: 'Error updating profile' });
-      }
+    const update = db.prepare('UPDATE users SET fullName = ?, bio = ?, avatar = ? WHERE id = ?');
+    update.run(fullName || '', bio || '', avatar || '', req.user.id);
 
-      db.get('SELECT id, username, email, fullName, bio, avatar, createdAt FROM users WHERE id = ?', [req.user.id], (err, user) => {
-        if (err) {
-          return res.status(500).json({ error: 'Database error' });
-        }
+    const user = db.prepare('SELECT id, username, email, fullName, bio, avatar, createdAt FROM users WHERE id = ?').get(req.user.id);
 
-        res.json({ message: 'Profile updated successfully', user });
-      });
-    }
-  );
+    res.json({ message: 'Profile updated successfully', user });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ error: 'Error updating profile' });
+  }
 });
 
 // Dashboard stats endpoint
 app.get('/api/dashboard/stats', authenticateToken, (req, res) => {
-  db.get('SELECT COUNT(*) as totalUsers FROM users', (err, stats) => {
-    if (err) {
-      return res.status(500).json({ error: 'Database error' });
-    }
+  try {
+    const stats = db.prepare('SELECT COUNT(*) as totalUsers FROM users').get();
 
     res.json({
       totalUsers: stats.totalUsers,
       currentUser: req.user.username,
       loginTime: new Date().toISOString()
     });
-  });
+  } catch (error) {
+    console.error('Dashboard stats error:', error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
-// Serve React app for all other routes
+// Serve static files from React build
+const buildPath = path.join(process.cwd(), 'frontend/build');
+app.use(express.static(buildPath, { fallthrough: true }));
+
+// Serve React app for all other routes (SPA fallback)
 app.use((req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/build/index.html'));
+  res.sendFile(path.join(buildPath, 'index.html'));
 });
 
 // Start server
