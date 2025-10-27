@@ -1,6 +1,13 @@
 # NodeReactPortal
 
+[![Build and Push Docker Image](https://github.com/matrixgoh/NodeReactPortal/actions/workflows/docker-build-push.yml/badge.svg)](https://github.com/matrixgoh/NodeReactPortal/actions/workflows/docker-build-push.yml)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/matrixgoh/NodeReactPortal/pkgs/container/nodereactportal)
+
 Full-stack application with Node.js backend and React frontend, featuring secure authentication, interactive dashboard, and user profile management. Dockerized deployment in a single container ensures streamlined implementation and efficient operation.
+
+## 🚀 One-Click Deployment
+
+[![Try in PWD](https://raw.githubusercontent.com/play-with-docker/stacks/master/assets/images/button.png)](https://labs.play-with-docker.com/?stack=https://raw.githubusercontent.com/matrixgoh/NodeReactPortal/main/docker-compose.ghcr.yml)
 
 ## Features
 
@@ -32,7 +39,29 @@ Full-stack application with Node.js backend and React frontend, featuring secure
 
 ## Quick Start
 
-### Using Docker (Recommended)
+### 🐳 Using Pre-built Docker Image from GHCR (Fastest)
+
+Pull and run the pre-built image from GitHub Container Registry:
+
+```bash
+docker run -d -p 5000:5000 \
+  -e JWT_SECRET=your-secret-key \
+  ghcr.io/matrixgoh/nodereactportal:latest
+```
+
+Or with Docker Compose:
+
+```bash
+# Download the compose file
+curl -O https://raw.githubusercontent.com/matrixgoh/NodeReactPortal/main/docker-compose.ghcr.yml
+
+# Run the container
+docker-compose -f docker-compose.ghcr.yml up -d
+```
+
+Then access the application at `http://localhost:5000`
+
+### Using Docker (Build from Source)
 
 1. Clone the repository:
 ```bash
@@ -142,6 +171,33 @@ NodeReactPortal/
 ├── docker-compose.yml    # Docker Compose configuration
 └── README.md            # This file
 ```
+
+## Docker Image Distribution
+
+Docker images are automatically built and published to GitHub Container Registry (GHCR) on every push to the main branch and on tagged releases.
+
+### Available Tags
+
+- `latest` - Latest build from the main branch
+- `main` - Latest build from the main branch
+- `v*` - Semantic version tags (e.g., `v1.0.0`)
+- `<branch>-<sha>` - Build from specific commit
+
+### Pull the Image
+
+```bash
+docker pull ghcr.io/matrixgoh/nodereactportal:latest
+```
+
+### Automated Builds
+
+The project uses GitHub Actions to automatically:
+- Build Docker images on every push to main
+- Tag images with semantic versioning
+- Push images to GitHub Container Registry
+- Test the built images to ensure they run correctly
+
+See the [workflow file](.github/workflows/docker-build-push.yml) for details.
 
 ## Development
 
