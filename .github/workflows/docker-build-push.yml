@@ -13,7 +13,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  # Default repository path (will be normalized to lowercase by a step before use)
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
@@ -37,13 +36,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Normalize image name to lowercase
-        # Ensure IMAGE_NAME is lowercase because Docker registry names must be lowercase
-        run: |
-          # Lowercase GITHUB_REPOSITORY (owner/repo)
-          echo "IMAGE_NAME=$(echo \"$GITHUB_REPOSITORY\" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
-        shell: bash
-
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
@@ -55,59 +47,19 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            # Use a plain sha tag (no branch prefix) to avoid producing invalid tags
+            # Use a plain sha tag (no branch prefix). The previous prefix used
+            # the branch name and could be empty, producing tags that start
+            # with a hyphen (invalid). Using plain sha yields a safe short
+            # commit id like "2437f95".
             type=sha
             type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Prepare image tags
-        id: image-tags
-        # Compute safe tags: when branch exists use 'branch.shortsha', else use 'shortsha'.
-        # Also add 'latest' when on the default branch.
-        run: |
-          set -euo pipefail
-
-          REGISTRY="${{ env.REGISTRY }}"
-          IMAGE="${{ env.IMAGE_NAME }}"
-
-          # Short sha
-          SHORT_SHA="${GITHUB_SHA:0:7}"
-
-          # Derive branch name if present
-          BRANCH_NAME=""
-          if [[ "${GITHUB_REF}" == refs/heads/* ]]; then
-            BRANCH_NAME="${GITHUB_REF#refs/heads/}"
-          fi
-
-          TAGS=""
-          if [[ -n "$BRANCH_NAME" ]]; then
-            # Use dot separator between branch and sha (e.g. feature.2437f95)
-            TAGS+="$REGISTRY/$IMAGE:${BRANCH_NAME}.${SHORT_SHA}\n"
-          fi
-
-          # Always include the short sha tag
-          TAGS+="$REGISTRY/$IMAGE:${SHORT_SHA}\n"
-
-          # If this is the default branch, add the 'latest' tag
-          if [[ "${GITHUB_REF#refs/heads/}" == "${{ github.event.repository.default_branch }}" || "${GITHUB_REF}" == "refs/heads/${{ github.event.repository.default_branch }}" ]]; then
-            TAGS+="$REGISTRY/$IMAGE:latest\n"
-          fi
-
-          # Trim trailing newline
-          TAGS=$(echo -e "$TAGS" | sed '/^$/d')
-
-          # Set output using the new GitHub Actions output file
-          echo "tags<<EOF" >> $GITHUB_OUTPUT
-          echo "$TAGS" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
-          # Use our computed safe tags (branch.shortsha or shortsha, plus latest when appropriate)
-          tags: ${{ steps.image-tags.outputs.tags }}
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -117,8 +69,8 @@ jobs:
       - name: Run Docker container test
         if: github.event_name != 'pull_request'
         run: |
-          # Extract the first tag from the tags we computed and pushed
-          IMAGE_TAG=$(echo "${{ steps.image-tags.outputs.tags }}" | head -n 1)
+          # Extract the first tag from metadata output
+          IMAGE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n 1)
           
           # Pull the image we just pushed
           docker pull "${IMAGE_TAG}"
@@ -162,7 +114,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Tags:**" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "${{ steps.image-tags.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Pull the image:**" >> $GITHUB_STEP_SUMMARY
