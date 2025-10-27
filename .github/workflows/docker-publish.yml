@@ -70,3 +70,26 @@ jobs:
           build-args: |
             BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
             VCS_REF=${{ github.sha }}
+
+      - name: Make GHCR package public
+        if: github.event_name != 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          # Determine whether the owner is a User or Organization, then call the correct API
+          set -euo pipefail
+          echo "Checking owner type for $OWNER"
+          owner_type=$(curl -sSL -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/users/$OWNER" | jq -r .type)
+          if [ "$owner_type" = "Organization" ]; then
+            url="https://api.github.com/orgs/$OWNER/packages/container/$REPO_NAME/visibility"
+          else
+            url="https://api.github.com/user/packages/container/$REPO_NAME/visibility"
+          fi
+          echo "Setting package visibility to public via: $url"
+          curl -sSL -X PUT \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -d '{"visibility":"public"}' \
+            "$url"
