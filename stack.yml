@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  nodereactportal:
+    image: ghcr.io/matrixgoh/nodereactportal:latest
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - JWT_SECRET=play-with-docker-demo-secret-key
+    restart: unless-stopped
