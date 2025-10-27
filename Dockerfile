@@ -1,10 +1,10 @@
 # Multi-stage build for efficient Docker image
 
 # Stage 1: Build React frontend
-FROM node:20 AS frontend-build
+FROM node:20-slim AS frontend-build
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm ci
+RUN npm install
 COPY frontend/ ./
 RUN npm run build
 
@@ -14,7 +14,7 @@ WORKDIR /app
 
 # Copy backend files
 COPY backend/package*.json ./
-RUN npm ci --omit=dev
+RUN npm install --production
 
 COPY backend/ ./
 
