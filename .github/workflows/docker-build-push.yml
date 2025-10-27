@@ -65,17 +65,35 @@ jobs:
       - name: Run Docker container test
         if: github.event_name != 'pull_request'
         run: |
+          # Extract the first tag from metadata output
+          IMAGE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n 1)
+          
           # Pull the image we just pushed
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+          docker pull "${IMAGE_TAG}"
           
           # Run the container
-          docker run -d -p 5000:5000 --name test-container ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+          docker run -d -p 5000:5000 --name test-container "${IMAGE_TAG}"
           
-          # Wait for the container to start
-          sleep 10
+          # Wait for the container to be healthy with retries
+          echo "Waiting for container to be ready..."
+          max_attempts=30
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            if curl -f http://localhost:5000 >/dev/null 2>&1; then
+              echo "✅ Container is responding!"
+              break
+            fi
+            attempt=$((attempt + 1))
+            echo "Attempt $attempt/$max_attempts - waiting..."
+            sleep 2
+          done
           
-          # Test if the application is responding
-          curl -f http://localhost:5000 || (docker logs test-container && exit 1)
+          # Final check
+          if ! curl -f http://localhost:5000 >/dev/null 2>&1; then
+            echo "❌ Container failed to start properly"
+            docker logs test-container
+            exit 1
+          fi
           
           # Clean up
           docker stop test-container
