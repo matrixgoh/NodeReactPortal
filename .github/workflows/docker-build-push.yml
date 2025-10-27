@@ -58,7 +58,9 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true  # Always push
+          # OR conditionally:
+          # push: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
@@ -66,44 +68,23 @@ jobs:
           build-args: |
             NODE_TLS_REJECT_UNAUTHORIZED=0
 
-      - name: Run Docker container test
+      - name: Run comprehensive Docker container tests
         if: github.event_name != 'pull_request'
         run: |
           # Extract the first tag from metadata output
           IMAGE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n 1)
           
+          echo "🧪 Running comprehensive container tests..."
+          echo "Image: ${IMAGE_TAG}"
+          
           # Pull the image we just pushed
           docker pull "${IMAGE_TAG}"
           
-          # Run the container
-          docker run -d -p 5000:5000 --name test-container "${IMAGE_TAG}"
+          # Run the comprehensive test script
+          chmod +x ./test-container.sh
+          ./test-container.sh "${IMAGE_TAG}" 5000
           
-          # Wait for the container to be healthy with retries
-          echo "Waiting for container to be ready..."
-          max_attempts=30
-          attempt=0
-          while [ $attempt -lt $max_attempts ]; do
-            if curl -f http://localhost:5000 >/dev/null 2>&1; then
-              echo "✅ Container is responding!"
-              break
-            fi
-            attempt=$((attempt + 1))
-            echo "Attempt $attempt/$max_attempts - waiting..."
-            sleep 2
-          done
-          
-          # Final check
-          if ! curl -f http://localhost:5000 >/dev/null 2>&1; then
-            echo "❌ Container failed to start properly"
-            docker logs test-container
-            exit 1
-          fi
-          
-          # Clean up
-          docker stop test-container
-          docker rm test-container
-          
-          echo "✅ Docker container test passed!"
+          echo "✅ All comprehensive tests passed!"
 
       - name: Output image details
         if: github.event_name != 'pull_request'
