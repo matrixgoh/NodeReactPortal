@@ -9,6 +9,8 @@ Full-stack application with Node.js backend and React frontend, featuring secure
 
 [![Try in PWD](https://raw.githubusercontent.com/play-with-docker/stacks/master/assets/images/button.png)](https://labs.play-with-docker.com/?stack=https://raw.githubusercontent.com/matrixgoh/NodeReactPortal/main/docker-compose.ghcr.yml)
 
+Click the button above to deploy instantly on Play-with-Docker! The container includes built-in health monitoring and comprehensive testing to ensure reliable operation.
+
 ## Features
 
 - 🔐 **Secure Authentication**: JWT-based authentication with bcrypt password hashing
@@ -198,6 +200,24 @@ The project uses GitHub Actions to automatically:
 - Test the built images to ensure they run correctly
 
 See the [workflow file](.github/workflows/docker-build-push.yml) for details.
+
+## Testing
+
+The repository includes comprehensive container testing to ensure reliability:
+
+### Automated Testing
+- Every Docker image build is automatically tested
+- All API endpoints are validated
+- Health checks ensure container stability
+- Authentication and authorization are verified
+
+### Manual Testing
+Run comprehensive tests locally:
+```bash
+./test-container.sh <image-name> <port>
+```
+
+For detailed testing instructions, see [TESTING.md](TESTING.md).
 
 ## Development
 
