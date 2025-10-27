@@ -13,7 +13,9 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  # GitHub repository may contain uppercase letters; Docker image names must be lowercase.
+  # Use toLower() to ensure the repository path is valid for container registries.
+  IMAGE_NAME: ${{ toLower(github.repository) }}
 
 jobs:
   build-and-push:
