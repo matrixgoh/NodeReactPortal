@@ -2,28 +2,6 @@
 
 Full-stack application with Node.js backend and React frontend, featuring secure authentication, interactive dashboard, and user profile management. Dockerized deployment in a single container ensures streamlined implementation and efficient operation.
 
-## 🚀 Try in Play With Docker
-
-Experience NodeReactPortal instantly in your browser without any installation! Click the button below to deploy the application in a ready-to-use sandbox environment:
-
-[![Try in PWD](https://raw.githubusercontent.com/play-with-docker/stacks/master/assets/images/button.png)](https://labs.play-with-docker.com/?stack=https://raw.githubusercontent.com/matrixgoh/NodeReactPortal/main/stack.yml)
-
-Once deployed, click the port badge (5000) that appears to access the application.
-
-### Quick Start with Pre-built Image
-
-Pull and run the latest pre-built image from GitHub Container Registry:
-
-```bash
-docker run -p 5000:5000 -e JWT_SECRET=your-secret-key ghcr.io/matrixgoh/nodereactportal:latest
-```
-
-Or use Docker Compose with the pre-built image:
-
-```bash
-docker compose -f docker-compose.ghcr.yml up
-```
-
 ## Features
 
 - 🔐 **Secure Authentication**: JWT-based authentication with bcrypt password hashing
@@ -31,18 +9,6 @@ docker compose -f docker-compose.ghcr.yml up
 - 👤 **User Profile Management**: Create and edit user profiles with avatar support
 - 🐳 **Docker Deployment**: Single container deployment for easy setup and deployment
 - 🎨 **Modern UI**: Clean, responsive design with gradient accents
-
-## 📦 Container Images
-
-Pre-built Docker images are automatically published to GitHub Container Registry (GHCR) on every release:
-
-- **Latest stable**: `ghcr.io/matrixgoh/nodereactportal:latest`
-- **Specific version**: `ghcr.io/matrixgoh/nodereactportal:v1.0.0`
-- **Main branch**: `ghcr.io/matrixgoh/nodereactportal:main`
-
-Images are built for multiple platforms:
-- linux/amd64 (x86_64)
-- linux/arm64 (ARM64/v8)
 
 ## Tech Stack
 
@@ -66,27 +32,7 @@ Images are built for multiple platforms:
 
 ## Quick Start
 
-### Using Pre-built Docker Image (Fastest)
-
-Pull and run the latest image from GitHub Container Registry:
-
-```bash
-docker run -p 5000:5000 -e JWT_SECRET=your-secret-key ghcr.io/matrixgoh/nodereactportal:latest
-```
-
-Access the application at `http://localhost:5000`
-
-### Using Docker Compose with Pre-built Image
-
-```bash
-# Download the compose file
-curl -O https://raw.githubusercontent.com/matrixgoh/NodeReactPortal/main/docker-compose.ghcr.yml
-
-# Run the application
-docker compose -f docker-compose.ghcr.yml up
-```
-
-### Using Docker (Build from Source)
+### Using Docker (Recommended)
 
 1. Clone the repository:
 ```bash
@@ -96,10 +42,17 @@ cd NodeReactPortal
 
 2. Build and run with Docker Compose:
 ```bash
-docker compose up --build
+docker-compose up --build
 ```
 
 3. Access the application at `http://localhost:5000`
+
+### Using Docker without Compose
+
+```bash
+docker build -t nodereactportal .
+docker run -p 5000:5000 nodereactportal
+```
 
 ### Manual Setup (Development)
 
